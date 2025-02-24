@@ -1,6 +1,10 @@
 {
   "dependencies": {
-    "express": "^4.21.2"
+    "@supabase/supabase-js": "^2.49.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pg": "^8.13.3",
+    "tsc": "^2.0.4"
   },
   "name": "express",
   "version": "1.0.0",
