@@ -61,3 +61,20 @@ app.get('/get-reports', (req, res) => {
         res.send(data.data);
     })
 });
+
+/*
+
+GET specific user reports
+
+POST report (assume req.body has same fields as database)
+
+GET a report by it’s ID
+
+UPDATE change status/severity of report reports(description)
+
+DELETE report
+
+*/
+
+
+
