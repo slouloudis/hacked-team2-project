@@ -6,8 +6,8 @@ var path = require('path');
 // import modules for supabase 
 var supabase_js_1 = require("@supabase/supabase-js");
 // quick hand notation
-var json_js_1 = require("./json.js");
-console.log((0, json_js_1.decodeJson)('{"test": "test"}'));
+// var json_js_1 = require("./json.js");
+// console.log((0, json_js_1.decodeJson)('{"test": "test"}'));
 // read `.env`
 require('dotenv').config();
 // init app
@@ -39,16 +39,17 @@ app.get('/', function (req, res) {
 // a test connection for the sql
 app.get('/get-hazards', function (req, res) {
     tables.hazards.select('*').then(function (data) {
-        res.send(data.data);
+        console.log(data)
+        res.json(data.data);
     });
 });
 app.get('/get-users', function (req, res) {
     tables.users.select('*').then(function (data) {
-        res.send(data.data);
+        res.json(data.data);
     });
 });
 app.get('/get-reports', function (req, res) {
-    tables.users.select('*').then(function (data) {
-        res.send(data.data);
+    tables.reports.select('*').then(function (data) {
+        res.json(data.data);
     });
 });
