@@ -34,7 +34,7 @@ export default function Page() {
   function handleSubmit() {
     console.log("User has submitted the form");
     console.log(formValues);
-    fetch("ENDPOINT URL", {
+    fetch("http://localhost:8080/reports", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -48,7 +48,6 @@ export default function Page() {
         estimated_duration: formValues.estimated_duration,
         severity: formValues.severity,
         is_planned: formValues.is_planned,
-        // todo Send clerk id.
       }),
     });
   }
