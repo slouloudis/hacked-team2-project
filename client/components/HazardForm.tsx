@@ -2,8 +2,9 @@ import { Button, Text, TextInput, View } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useState } from "react";
 
-export default function Page() {
+export default async function Page() {
   // todo query to get the hazard list and their default descriptions.
+
   const [formValues, setFormValues] = useState({
     hazard: "",
     severity: "",
@@ -34,13 +35,13 @@ export default function Page() {
   function handleSubmit() {
     console.log("User has submitted the form");
     console.log(formValues);
-    fetch("http://localhost:8080/reports", {
+    fetch("https://localhost:3000/reports", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        hazard: formValues.hazard,
+        hazard_id: formValues.hazard,
         description: formValues.description,
         latitude: formValues.latitude,
         longitude: formValues.longitude,
