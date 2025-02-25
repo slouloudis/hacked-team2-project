@@ -1,34 +1,39 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, Alert, Button, Modal, TextInput } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  Button,
+  Modal,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import * as Location from "expo-location";
+import AddHazardForm from "@/components/HazardForm"; // Form to add new hazard-based report
+import { Link } from "expo-router";
 
-const HazardMap = () => {
-  const [location, setLocation] = useState(null);
-  const [hazards, setHazards] = useState<any>([
-        { id: 1, latitude: 52.6309, longitude: 1.2974, type: "Fallen Tree" },
-        { id: 2, latitude: 52.6315, longitude: 1.2988, type: "Icy Road" }
-  ]);
+export default function ReportMap({ navigation }: any) {
+  const [location, setLocation] = useState<any>(null);
+  const [reports, setReports] = useState<any[]>([]);
   const [route, setRoute] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [newHazard, setNewHazard] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [hazardType, setHazardType] = useState("");
+  const [newCoordinates, setNewCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
 
-  console.log(hazards)
+  // console.log(reports)
+// 
   useEffect(() => {
     (async () => {
-        const res = await fetch(`http://localhost:3000/get-reports`)
-        const data = await res.json()
-        setHazards(data)
-    })
-  }, [])
-
-  const handleMapPress = (event: any) => {
-    const { latitude, longitude } = event.nativeEvent.coordinate;
-    setNewHazard({ latitude, longitude });
-    setModalVisible(true);
-  };
-
+      try {
+        const res = await fetch("http://localhost:3000/reports");
+        const data = await res.json();
+        setReports(data); // rename from 'hazards' to 'reports'
+      } catch (err) {
+        console.log("Error fetching reports:", err);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -37,100 +42,126 @@ const HazardMap = () => {
         Alert.alert("Permission Denied", "Allow location access to view the map.");
         return;
       }
-
       let loc = await Location.getCurrentPositionAsync({});
       setLocation(loc.coords);
     })();
   }, []);
 
-  const handleHazardPress = (hazard:any) => {
+  const handleMapPress = (event: any) => {
+    const { latitude, longitude } = event.nativeEvent.coordinate;
+    setNewCoordinates({ latitude, longitude });
+    setModalVisible(true);
+  };
+
+  const handleReportPress = (report: any) => {
     if (!location) return;
-    
     setRoute([
-      { latitude: location.latitude, longitude: location.longitude }, 
-      { latitude: hazard.latitude, longitude: hazard.longitude }
+      { latitude: location.latitude, longitude: location.longitude },
+      { latitude: report.latitude, longitude: report.longitude },
     ]);
   };
 
-  const addHazard = () => {
-    if (!hazardType.trim()) {
-      Alert.alert("Please enter a hazard type.");
-      return;
-    }
 
-    setHazards((prev: any) => [
-      ...prev,
-      { id: prev.length + 1, latitude: newHazard!.latitude, longitude: newHazard!.longitude, type: hazardType }
-    ]);
-
+  const onFormSuccess = (newReport: any) => {
+    setReports((prev) => [...prev, newReport]); 
     setModalVisible(false);
-    setNewHazard(null);
-    setHazardType("");
+    setNewCoordinates(null);
   };
 
   if (!location) return <ActivityIndicator size="large" style={styles.loader} />;
 
   return (
-    <>
-    <View style={styles.container}>
-      <MapView
-        style={styles.map}
-        initialRegion={{
-          latitude: location?.latitude,
-          longitude: location?.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01}}
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.header}>
+        {/* Link to /home using Expo Router */}
+        <Link href={"/home"}>home</Link>
+        <Text style={styles.headerTitle}>Reports Map</Text>
+      </View>
+
+      <View style={styles.mapContainer}>
+        <MapView
+          style={styles.map}
+          initialRegion={{
+            latitude: location?.latitude,
+            longitude: location?.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }}
           showsUserLocation
           onPress={handleMapPress}
-      >
-        {/* Hazard Markers */}
-        {hazards.map((hazard : any) => (
-          <Marker
-            key={hazard.id}
-            coordinate={{ latitude: hazard.latitude, longitude: hazard.longitude }}
-            title={hazard.type}
-            description="Tap to navigate"
-            onPress={() => handleHazardPress(hazard)}
-          />
-        ))}
-
-        {/* Route from user to hazard */}
-        {route && (
-          <Polyline
-            coordinates={route}
-            strokeWidth={4}
-            strokeColor="red"
-          />
-        )}
-      </MapView>
-    </View>
-    <Modal visible={modalVisible} transparent animationType="slide">
-    <View style={styles.modalContainer}>
-      <View style={styles.modalContent}>
-        <Text style={styles.modalTitle}>Enter Hazard Type:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="E.g., Flooded Road"
-          value={hazardType}
-          onChangeText={setHazardType}
-        />
-        <Button title="Add Hazard" onPress={addHazard} />
-        <Button title="Cancel" color="red" onPress={() => setModalVisible(false)} />
+        >
+          {reports.map((report) => (
+            <Marker
+              key={report.id}
+              coordinate={{ latitude: report.latitude, longitude: report.longitude }}
+              title={report.type}
+              description="Tap to navigate"
+              onPress={() => handleReportPress(report)}
+            />
+          ))}
+          {route && <Polyline coordinates={route} strokeWidth={4} strokeColor="red" />}
+        </MapView>
       </View>
-    </View>
-  </Modal>
-  </>
+
+      {/* Smaller modal for the form */}
+      <Modal visible={modalVisible} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContent}>
+            <AddHazardForm
+              coordinates={newCoordinates}
+              onClose={() => {
+                setModalVisible(false);
+                setNewCoordinates(null);
+              }}
+              onSuccess={onFormSuccess}
+            />
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  map: { width: "100%", height: "100%" },
-  loader: { flex: 1, justifyContent: "center", alignItems: "center" },
-  modalContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.5)" },
-  modalContent: { backgroundColor: "white", padding: 20, borderRadius: 10, width: "80%" },
-  modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
-  input: { borderWidth: 1, borderColor: "gray", padding: 8, marginBottom: 10, width: "100%" },
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#FFF",
+  },
+  header: {
+    flexDirection: "row",
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#f0f0f0",
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  mapContainer: {
+    flex: 1,
+  },
+  map: {
+    width: "100%",
+    height: "100%",
+  },
+  loader: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)", 
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "90%",
+    maxHeight: "80%", // so the form won't fill the entire screen
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 20,
+  },
 });
-
-export default HazardMap;

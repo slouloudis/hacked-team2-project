@@ -1,115 +1,243 @@
-import { Button, Text, TextInput, View } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, TextInput, Button, StyleSheet, ScrollView, Platform } from "react-native";
 import { Picker } from "@react-native-picker/picker";
-import { useState } from "react";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
-export default async function Page() {
-  // todo query to get the hazard list and their default descriptions.
+interface Hazard {
+  id: number;
+  name: string;
+  default_description?: string;
+}
 
-  const [formValues, setFormValues] = useState({
+interface FormValues {
+  hazard: string; 
+  severity: string;
+  description: string;
+  time_start: string; // store ISO string
+  latitude: string;
+  longitude: string;
+  estimated_duration: string;
+  is_planned: string; 
+}
+
+export default function AddHazardForm({
+  coordinates,
+  onSuccess,
+  onClose,
+}: {
+  coordinates: { latitude: number; longitude: number } | null;
+  onSuccess: (newHazard: any) => void;
+  onClose: () => void;
+}) {
+  const [hazardList, setHazardList] = useState<Hazard[]>([]);
+  const [formValues, setFormValues] = useState<FormValues>({
     hazard: "",
-    severity: "",
+    severity: "low",
     description: "",
     time_start: "",
     latitude: "",
     longitude: "",
     estimated_duration: "Unknown",
-    is_planned: true,
+    is_planned: "true",
   });
 
-  function handleChange(field: string, value: any) {
-    if (field === "hazard") {
-      // todo On hazard change (picked from drop down) replace discription with it's default.
+  // for the native time picker
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [chosenTime, setChosenTime] = useState(new Date());
+
+  useEffect(() => {
+    fetch("http://localhost:3000/hazards")
+      .then((res) => res.json())
+      .then((data) => setHazardList(data))
+      .catch((err) => console.log(err));
+  }, []);
+
+  useEffect(() => {
+    if (coordinates) {
+      setFormValues((prev) => ({
+        ...prev,
+        latitude: coordinates.latitude.toString(),
+        longitude: coordinates.longitude.toString(),
+      }));
     }
+  }, [coordinates]);
+
+  function handleChange(field: keyof FormValues, value: string) {
     setFormValues((prev) => ({
       ...prev,
       [field]: value,
     }));
-    console.log(formValues);
   }
 
-  function getCurrentTime() {
-    const currentTime = new Date().toISOString();
-    handleChange("time_start", currentTime);
+  // Called when user sets the time in the native time picker
+  function onTimePickerChange(event: any, selectedDate?: Date) {
+    setShowTimePicker(false);
+    if (selectedDate) {
+      setChosenTime(selectedDate);
+      handleChange("time_start", selectedDate.toISOString());
+    }
   }
 
-  function handleSubmit() {
-    console.log("User has submitted the form");
-    console.log(formValues);
-    fetch("https://localhost:3000/reports", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        hazard_id: formValues.hazard,
-        description: formValues.description,
-        latitude: formValues.latitude,
-        longitude: formValues.longitude,
-        time_start: formValues.time_start,
-        estimated_duration: formValues.estimated_duration,
-        severity: formValues.severity,
-        is_planned: formValues.is_planned,
-      }),
-    });
+  async function handleSubmit() {
+    try {
+      const response = await fetch("http://localhost:3000/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hazard_id: formValues.hazard,
+          description: formValues.description,
+          latitude: parseFloat(formValues.latitude),
+          longitude: parseFloat(formValues.longitude),
+          time_start: formValues.time_start,
+          estimated_duration: formValues.estimated_duration,
+          severity: formValues.severity,
+          is_planned: formValues.is_planned === "true",
+        }),
+      });
+      const newReport = await response.json();
+      onSuccess({
+        id: newReport.id,
+        latitude: parseFloat(formValues.latitude),
+        longitude: parseFloat(formValues.longitude),
+        type:
+          hazardList.find((h) => h.id.toString() === formValues.hazard)?.name ||
+          "New Hazard",
+      });
+    } catch (err) {
+      console.log("Error submitting form:", err);
+    }
   }
+
   return (
-    <View>
-      {/* I plan to validate table on submit */}
-      {/* We can add a ? to each field which can be tapped to give extra information, helping guide users through the form */}
-      <Text>What is the hazard</Text>
-      {/* todo: When end point is ready populate a drop down menu with list of hazards instead of having them type it in. */}
-      <TextInput value={formValues.hazard} onChangeText={(value) => handleChange("hazard", value)}></TextInput>
-      {formValues.hazard ? (
-        <>
-          <Text>Provide a description for the hazard.</Text>
-          <TextInput
-            value={formValues.description}
-            onChangeText={(value) => handleChange("description", value)}
-          ></TextInput>
-        </>
-      ) : null}
-      <Text>Time of occurance.</Text>
-      <Button title="Current Time" onPress={getCurrentTime}></Button>
-      <TextInput
-        placeholder="Enter time start"
-        value={formValues.time_start}
-        onChangeText={(value) => handleChange("time_start", value)}
-      />
-      {/* TODO: Input for time, likely date picker + input to enter time, code to format entry to be sent into database, and a button to select current time. */}
-      <Text>Where is the latitude of the hazard?</Text>
-      {/* TODO/Stretch goal: add a button that takes the user's current location using GPS and fills the form in */}
-      <TextInput
-        keyboardType="numeric"
-        value={formValues.latitude}
-        onChangeText={(value) => handleChange("latitude", value)}
-      ></TextInput>
-      <Text>Where is the longitide of the hazard?</Text>
-      <TextInput
-        keyboardType="numeric"
-        value={formValues.longitude}
-        onChangeText={(value) => handleChange("longitude", value)}
-      ></TextInput>
-      <Text>Provide a description for the hazard.</Text>
-      <Text>How severe is this hazard?</Text>
-      <Picker selectedValue={formValues.severity} onValueChange={(value) => handleChange("severity", value)}>
-        {/* TODO: Check that low/mid/high string matches the restraints exactly in the database. */}
-        <Picker.Item label="Low risk." value="low" />
-        <Picker.Item label="Medium risk" value="medium" />
-        <Picker.Item label="high risk" value="high" />
-      </Picker>
-      <Text>What is the estimated duration for this hazard</Text>
-      <TextInput
-        value={formValues.estimated_duration}
-        onChangeText={(value) => handleChange("estimated_duration", value)}
-        placeholder="Unknown"
-      ></TextInput>
-      <Text>Is this something that has been planned (eg construction work):</Text>
-      {/* Currently bugged as planned becomes false while unplanned becomes true */}
-      <Picker selectedValue={formValues.is_planned} onValueChange={(value) => handleChange("is_planned", value)}>
-        <Picker.Item label="Planned" value={true} />
-        <Picker.Item label="Unplanned" value={false} />
-      </Picker>
-      <Button title="Submit" onPress={handleSubmit}></Button>
-    </View>
+    <ScrollView style={{ flexGrow: 0 }}>
+      <View style={styles.formContainer}>
+        <Text style={styles.label}>Select Hazard Type:</Text>
+        <Picker
+          selectedValue={formValues.hazard}
+          onValueChange={(val) => handleChange("hazard", val)}
+          style={styles.picker}
+        >
+          <Picker.Item label="-- Choose a hazard --" value="" />
+          {hazardList.map((haz) => (
+            <Picker.Item key={haz.id} label={haz.name} value={haz.id.toString()} />
+          ))}
+        </Picker>
+
+        {formValues.hazard !== "" && (
+          <>
+            <Text style={styles.label}>Description (optional override):</Text>
+            <TextInput
+              style={styles.input}
+              value={formValues.description}
+              onChangeText={(val) => handleChange("description", val)}
+              placeholder="Enter a description"
+            />
+          </>
+        )}
+
+        <Text style={styles.label}>Time of occurrence</Text>
+        {/* Button to open the time picker */}
+        <Button title="Select Time" onPress={() => setShowTimePicker(true)} />
+        {/* Show the chosen time in your UI if you like */}
+        {formValues.time_start ? (
+          <Text style={styles.timePreview}>
+            {new Date(formValues.time_start).toLocaleTimeString().split(':02').join('')}
+          </Text>
+        ) : null}
+
+        {/* The actual native time picker */}
+        {showTimePicker && (
+          <DateTimePicker
+            value={chosenTime}
+            mode="time"
+            is24Hour={true}
+            display={Platform.OS === "ios" ? "spinner" : "default"}
+            onChange={onTimePickerChange}
+          />
+        )}
+
+        <Text style={styles.label}>Latitude</Text>
+        <TextInput
+          style={styles.input}
+          keyboardType="numeric"
+          value={formValues.latitude}
+          onChangeText={(val) => handleChange("latitude", val)}
+        />
+
+        <Text style={styles.label}>Longitude</Text>
+        <TextInput
+          style={styles.input}
+          keyboardType="numeric"
+          value={formValues.longitude}
+          onChangeText={(val) => handleChange("longitude", val)}
+        />
+
+        <Text style={styles.label}>How severe is this hazard?</Text>
+        <Picker
+          selectedValue={formValues.severity}
+          onValueChange={(val) => handleChange("severity", val)}
+          style={styles.picker}
+        >
+          <Picker.Item label="Low risk" value="low" />
+          <Picker.Item label="Medium risk" value="medium" />
+          <Picker.Item label="High risk" value="high" />
+        </Picker>
+
+        <Text style={styles.label}>Estimated duration</Text>
+        <TextInput
+          style={styles.input}
+          value={formValues.estimated_duration}
+          onChangeText={(val) => handleChange("estimated_duration", val)}
+          placeholder="Unknown"
+        />
+
+        <Text style={styles.label}>Is this planned?</Text>
+        <Picker
+          selectedValue={formValues.is_planned}
+          onValueChange={(val) => handleChange("is_planned", val)}
+          style={styles.picker}
+        >
+          <Picker.Item label="Planned" value="true" />
+          <Picker.Item label="Unplanned" value="false" />
+        </Picker>
+
+        <View style={styles.buttonRow}>
+          <Button title="Submit" onPress={handleSubmit} />
+          <Button title="Cancel" color="red" onPress={onClose} />
+        </View>
+      </View>
+    </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  formContainer: {
+    padding: 10,
+  },
+  label: {
+    fontWeight: "bold",
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    marginBottom: 10,
+    padding: 8,
+    borderRadius: 5,
+  },
+  picker: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    marginBottom: 10,
+  },
+  timePreview: {
+    marginVertical: 5,
+    fontStyle: "italic",
+  },
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 15,
+  },
+});
