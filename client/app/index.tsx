@@ -3,7 +3,7 @@ import { Link } from 'expo-router'
 import { Text, View, StyleSheet} from 'react-native'
 
 export default function Page() {
-  const { user } = useUser()
+  const { user } = useUser();
 
   return (
     <View>
@@ -29,7 +29,7 @@ export default function Page() {
         </Link>
       </SignedOut>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
