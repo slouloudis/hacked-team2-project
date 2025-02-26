@@ -1,6 +1,6 @@
 import { SignedIn, SignedOut, useUser } from '@clerk/clerk-expo'
 import { Link } from 'expo-router'
-import { Text, View } from 'react-native'
+import { Button, Text, View } from 'react-native'
 
 export default function Page() {
   const { user } = useUser()
@@ -11,12 +11,8 @@ export default function Page() {
         <Text>Hello {user?.emailAddresses[0].emailAddress}</Text>
       </SignedIn>
       <SignedOut>
-        <Link href="/(auth)/sign-in">
-          <Text>Sign in</Text>
-        </Link>
-        <Link href="/(auth)/sign-up">
-          <Text>Sign up</Text>
-        </Link>
+        <Button title="Sign in" onPress={() => { window.location.href = '/(auth)/sign-in'; }} />
+        <Button title="Sign up" onPress={() => { window.location.href = '/(auth)/sign-up'; }} />
       </SignedOut>
     </View>
   )
