@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var express = require('express');
 var lstat = require('fs').lstat;
 var path = require('path');
+var cors = require('cors')
 // import modules for supabase 
 var supabase_js_1 = require("@supabase/supabase-js");
 // read `.env`
@@ -14,6 +15,7 @@ var app = express();
 var PORT = 3000;
 // needed for post and get requests
 app.use(express.json());
+app.use(cors())
 // connect to database
 var supabaseUrl = 'https://lhbvrjbqokpjbubaanqv.supabase.co';
 var supabaseKey = process.env.SUPABASE_KEY;
@@ -74,7 +76,7 @@ app.get('/reports', function (req, res) {
     });
 });
 app.post('/reports', function (req, res) {
-    // console.log(req.body);
+    console.log(req.body);
     var _a = req.body, hazard_id = _a.hazard_id, description = _a.description, time_start = _a.time_start, latitude = _a.latitude, longitude = _a.longitude, estimated_duration = _a.estimated_duration, is_planned = _a.is_planned, severity = _a.severity;
     var user_id = 1;
     if (!req.body.description === null) {
