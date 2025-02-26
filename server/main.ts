@@ -95,7 +95,10 @@ app.get('/reports', (req, res) => {
 app.post('/reports', (req, res) => {
     // console.log(req.body);
     
-    const {hazard_id, description, time_start, latitude, longitude, estimated_duration, is_planned, severity} = req.body  
+    const {
+        hazard_id, description, time_start, latitude,
+        longitude,estimated_duration, is_planned, severity
+    } = req.body  
 
     const user_id = 1;
 
