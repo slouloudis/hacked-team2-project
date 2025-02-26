@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, Button, StyleSheet, ScrollView, Platform } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  Button,
+  StyleSheet,
+  ScrollView,
+  Platform,
+} from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { hazards } from "./HazardStore";
 
 interface Hazard {
   id: number;
@@ -10,14 +19,14 @@ interface Hazard {
 }
 
 interface FormValues {
-  hazard: string; 
+  hazard: string; // hazard_id
   severity: string;
   description: string;
   time_start: string; // store ISO string
   latitude: string;
   longitude: string;
   estimated_duration: string;
-  is_planned: string; 
+  is_planned: string; // "true" or "false" from the picker
 }
 
 export default function AddHazardForm({
@@ -26,10 +35,10 @@ export default function AddHazardForm({
   onClose,
 }: {
   coordinates: { latitude: number; longitude: number } | null;
-  onSuccess: (newHazard: any) => void;
+  onSuccess: () => void;
   onClose: () => void;
 }) {
-  const [hazardList, setHazardList] = useState<Hazard[]>([]);
+  const [hazardList] = useState<Hazard[]>(hazards);
   const [formValues, setFormValues] = useState<FormValues>({
     hazard: "",
     severity: "low",
@@ -40,18 +49,10 @@ export default function AddHazardForm({
     estimated_duration: "Unknown",
     is_planned: "true",
   });
-
-  // for the native time picker
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [chosenTime, setChosenTime] = useState(new Date());
 
-  useEffect(() => {
-    fetch("http://localhost:3000/hazards")
-      .then((res) => res.json())
-      .then((data) => setHazardList(data))
-      .catch((err) => console.log(err));
-  }, []);
-
+  // Pre-fill latitude/longitude from map press
   useEffect(() => {
     if (coordinates) {
       setFormValues((prev) => ({
@@ -63,46 +64,53 @@ export default function AddHazardForm({
   }, [coordinates]);
 
   function handleChange(field: keyof FormValues, value: string) {
-    setFormValues((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setFormValues((prev) => ({ ...prev, [field]: value }));
+    console.log(formValues)
   }
 
-  // Called when user sets the time in the native time picker
   function onTimePickerChange(event: any, selectedDate?: Date) {
     setShowTimePicker(false);
     if (selectedDate) {
       setChosenTime(selectedDate);
+      // Convert to ISO format so it matches the server’s example
       handleChange("time_start", selectedDate.toISOString());
     }
   }
 
   async function handleSubmit() {
     try {
-      const response = await fetch("http://localhost:3000/reports", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          hazard_id: formValues.hazard,
-          description: formValues.description,
-          latitude: parseFloat(formValues.latitude),
-          longitude: parseFloat(formValues.longitude),
-          time_start: formValues.time_start,
-          estimated_duration: formValues.estimated_duration,
-          severity: formValues.severity,
-          is_planned: formValues.is_planned === "true",
-        }),
-      });
-      const newReport = await response.json();
-      onSuccess({
-        id: newReport.id,
+      // Construct a request body that exactly matches your Postman data
+      const requestBody = {
+        user_id: 1, // Example hard-coded user_id
+        hazard_id: parseInt(formValues.hazard, 10),
+        description: formValues.description,
+        time_start: formValues.time_start,
         latitude: parseFloat(formValues.latitude),
         longitude: parseFloat(formValues.longitude),
-        type:
-          hazardList.find((h) => h.id.toString() === formValues.hazard)?.name ||
-          "New Hazard",
+        estimated_duration: formValues.estimated_duration,
+        is_planned: formValues.is_planned === "true",
+        severity: formValues.severity,
+      };
+
+      console.log("Submitting request body:", requestBody);
+
+      const response = await fetch("https://hacked-team2-project.onrender.com/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log("Server error:", errorText);
+        return;
+      }
+
+      const newReport = await response.json();
+      console.log("Created new report:", newReport);
+
+      // Let the parent know submission worked, so it can re-fetch, etc.
+      onSuccess();
     } catch (err) {
       console.log("Error submitting form:", err);
     }
@@ -125,7 +133,7 @@ export default function AddHazardForm({
 
         {formValues.hazard !== "" && (
           <>
-            <Text style={styles.label}>Description (optional override):</Text>
+            <Text style={styles.label}>Description (optional):</Text>
             <TextInput
               style={styles.input}
               value={formValues.description}
@@ -136,16 +144,16 @@ export default function AddHazardForm({
         )}
 
         <Text style={styles.label}>Time of occurrence</Text>
-        {/* Button to open the time picker */}
         <Button title="Select Time" onPress={() => setShowTimePicker(true)} />
-        {/* Show the chosen time in your UI if you like */}
         {formValues.time_start ? (
           <Text style={styles.timePreview}>
-            {new Date(formValues.time_start).toLocaleTimeString().split(':02').join('')}
+            {new Date(formValues.time_start).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
           </Text>
         ) : null}
 
-        {/* The actual native time picker */}
         {showTimePicker && (
           <DateTimePicker
             value={chosenTime}
@@ -172,7 +180,7 @@ export default function AddHazardForm({
           onChangeText={(val) => handleChange("longitude", val)}
         />
 
-        <Text style={styles.label}>How severe is this hazard?</Text>
+        <Text style={styles.label}>Severity</Text>
         <Picker
           selectedValue={formValues.severity}
           onValueChange={(val) => handleChange("severity", val)}
